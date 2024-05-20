@@ -35,10 +35,10 @@ fn check_hex(string: &str) -> Result<()> {
         return Ok(());
     }
 
-    return Err(ErrorKind::HexParseError(format!(
+    Err(ErrorKind::HexParseError(format!(
         "Expected a 0x-prefixed string of even length, found {} length string",
         string.len()
-    )))?;
+    )))?
 }
 /// given a type and HashMap<String, Vec<FieldType>>
 /// returns a HashSet of dependent types of the given type
@@ -46,9 +46,7 @@ fn build_dependencies<'a>(
     message_type: &'a str,
     message_types: &'a MessageTypes,
 ) -> Option<HashSet<&'a str>> {
-    if message_types.get(message_type).is_none() {
-        return None;
-    }
+    message_types.get(message_type)?;
 
     let mut types = IndexSet::new();
     types.insert(message_type);
@@ -73,7 +71,7 @@ fn build_dependencies<'a>(
         }
     }
 
-    return Some(deps);
+    Some(deps)
 }
 
 fn encode_type(message_type: &str, message_types: &MessageTypes) -> Result<String> {
@@ -82,7 +80,7 @@ fn encode_type(message_type: &str, message_types: &MessageTypes) -> Result<Strin
             build_dependencies(message_type, message_types).ok_or(ErrorKind::NonExistentType)?;
         temp.remove(message_type);
         let mut temp = temp.into_iter().collect::<Vec<_>>();
-        (&mut temp[..]).sort_unstable();
+        temp[..].sort_unstable();
         temp.insert(0, message_type);
         temp
     };
@@ -95,7 +93,7 @@ fn encode_type(message_type: &str, message_types: &MessageTypes) -> Result<Strin
                     .iter()
                     .map(|value| format!("{} {}", value.type_, value.name))
                     .join(",");
-                return format!("{}({})", dep, types);
+                format!("{}({})", dep, types)
             })
         })
         .collect::<Vec<_>>()
@@ -122,23 +120,23 @@ fn encode_data(
             // the length of items to be encoded
             if length.is_some() && Some(values.len() as u64) != *length {
                 let array_type = format!("{}[{}]", *inner, length.unwrap());
-                return Err(ErrorKind::UnequalArrayItems(
+                Err(ErrorKind::UnequalArrayItems(
                     length.unwrap(),
                     array_type,
                     values.len() as u64,
-                ))?;
+                ))?
             }
 
             for item in values {
-                let mut encoded = encode_data(&*inner, &message_types, item, field_name)?;
+                let mut encoded = encode_data(inner, message_types, item, field_name)?;
                 items.append(&mut encoded);
             }
 
             keccak(items).as_ref().to_vec()
         }
 
-        Type::Custom(ref ident) if message_types.get(&*ident).is_some() => {
-            let type_hash = (&type_hash(ident, &message_types)?).0.to_vec();
+        Type::Custom(ref ident) if message_types.get(ident).is_some() => {
+            let type_hash = type_hash(ident, message_types)?.0.to_vec();
             let mut tokens = encode(&[EthAbiToken::FixedBytes(type_hash)]);
 
             for field in message_types
@@ -146,8 +144,8 @@ fn encode_data(
                 .expect("Already checked in match guard; qed")
             {
                 let value = &value[&field.name];
-                let type_ = parse_type(&*field.type_)?;
-                let mut encoded = encode_data(&type_, &message_types, &value, Some(&*field.name))?;
+                let type_ = parse_type(&field.type_)?;
+                let mut encoded = encode_data(&type_, message_types, value, Some(&*field.name))?;
                 tokens.append(&mut encoded);
             }
 
@@ -157,12 +155,12 @@ fn encode_data(
         Type::Bytes => {
             let string = value.as_str().ok_or(serde_error("string", field_name))?;
 
-            check_hex(&string)?;
+            check_hex(string)?;
 
-            let bytes = (&string[2..])
+            let bytes = string[2..]
                 .from_hex::<Vec<u8>>()
                 .map_err(|err| ErrorKind::HexParseError(format!("{}", err)))?;
-            let bytes = keccak(&bytes).as_ref().to_vec();
+            let bytes = keccak(bytes).as_ref().to_vec();
 
             encode(&[EthAbiToken::FixedBytes(bytes)])
         }
@@ -170,9 +168,9 @@ fn encode_data(
         Type::Byte(_) => {
             let string = value.as_str().ok_or(serde_error("string", field_name))?;
 
-            check_hex(&string)?;
+            check_hex(string)?;
 
-            let bytes = (&string[2..])
+            let bytes = string[2..]
                 .from_hex::<Vec<u8>>()
                 .map_err(|err| ErrorKind::HexParseError(format!("{}", err)))?;
 
@@ -192,7 +190,7 @@ fn encode_data(
         Type::Address => {
             let addr = value.as_str().ok_or(serde_error("string", field_name))?;
             if addr.len() != 42 {
-                return Err(ErrorKind::InvalidAddressLength(addr.len()))?;
+                Err(ErrorKind::InvalidAddressLength(addr.len()))?
             }
             let address = EthAddress::from_str(&addr[2..])
                 .map_err(|err| ErrorKind::HexParseError(format!("{}", err)))?;
@@ -202,7 +200,7 @@ fn encode_data(
         Type::Uint | Type::Int => {
             let string = value.as_str().ok_or(serde_error("int/uint", field_name))?;
 
-            check_hex(&string)?;
+            check_hex(string)?;
 
             let uint = U256::from_str(&string[2..])
                 .map_err(|err| ErrorKind::HexParseError(format!("{}", err)))?;
@@ -217,8 +215,8 @@ fn encode_data(
 
         _ => {
             return Err(ErrorKind::UnknownType(
-                format!("{}", field_name.unwrap_or("")),
-                format!("{}", *message_type),
+                field_name.unwrap_or("").to_string(),
+                message_type.to_string(),
             )
             .into())
         }
