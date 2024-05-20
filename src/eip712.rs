@@ -18,10 +18,10 @@
 use ethereum_types::{Address, H256, U256};
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use validator::{Validate, ValidationError, ValidationErrors};
-use serde::{Deserialize, Serialize};
 
 pub(crate) type MessageTypes = HashMap<String, Vec<FieldType>>;
 
@@ -87,10 +87,10 @@ impl Validate for EIP712 {
 
 #[derive(Serialize, Deserialize, Validate, Debug, Clone)]
 pub(crate) struct FieldType {
-    #[validate(regex(path="*IDENT_REGEX"))]
+    #[validate(regex(path = "*IDENT_REGEX"))]
     pub name: String,
     #[serde(rename = "type")]
-    #[validate(regex(path="*TYPE_REGEX"))]
+    #[validate(regex(path = "*TYPE_REGEX"))]
     pub type_: String,
 }
 
