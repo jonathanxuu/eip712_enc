@@ -66,6 +66,9 @@ pub enum ErrorKind {
     /// Typed array length doesn't fit into a u64
     #[fail(display = "Attempted to declare fixed size with length {}", _0)]
     InvalidArraySize(String),
+    /// Error occurred while parsing the type
+    #[fail(display = "Parse type faild {}", _0)]
+    LexerError(String),
 }
 
 pub(crate) fn serde_error(expected: &str, field: Option<&str>) -> ErrorKind {

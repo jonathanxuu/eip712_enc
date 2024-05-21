@@ -16,8 +16,59 @@
 
 //! Solidity type-name parsing
 use crate::error::*;
-use lunarity_lexer::{Lexer, Token};
 use std::{fmt, result};
+
+use chumsky::{prelude::*, text::ident};
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Token {
+    BracketOpen,
+    BracketClose,
+    Identifier(String),
+    LiteralInteger(String),
+    TypeBool,
+    TypeAddress,
+    TypeString,
+    TypeByte(String),
+    TypeBytes,
+    TypeInt,
+    TypeUint,
+}
+
+fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
+    let digits = text::digits::<_, Simple<char>>(10);
+    let identifier = ident().map(Token::Identifier);
+    let uint = just("uint").to(Token::TypeUint);
+    let int = just("int").to(Token::TypeInt);
+    let string = just("string").to(Token::TypeString);
+    let bool_ = just("bool").to(Token::TypeBool);
+    let bytes = just("bytes").to(Token::TypeBytes);
+    let address = just("address").to(Token::TypeAddress);
+    let number = digits.clone().map(Token::LiteralInteger);
+    let byte = just("byte").then(digits).map(|(_, n)| Token::TypeByte(n));
+    let bracket_open = just('[').to(Token::BracketOpen);
+    let bracket_close = just(']').to(Token::BracketClose);
+
+    let token = uint
+        .or(int)
+        .or(string)
+        .or(bool_)
+        .or(bytes)
+        .or(address)
+        .or(byte)
+        .or(number)
+        .or(bracket_open)
+        .or(bracket_close)
+        .or(identifier);
+
+    token.padded().repeated().then_ignore(end())
+}
+
+fn tokenize(input: &str) -> Result<Vec<Token>> {
+    lexer()
+        .parse(input)
+        .map_err(|err| ErrorKind::LexerError(format!("{err:?}")).into())
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
@@ -72,35 +123,35 @@ pub fn parse_type(field_type: &str) -> Result<Type> {
         Close,
     }
 
-    let mut lexer = Lexer::new(field_type);
+    let tokens = tokenize(field_type)?;
+    // let mut lexer = Lexer::new(field_type);
     let mut token = None;
     let mut state = State::Close;
     let mut array_depth = 0;
     let mut current_array_length: Option<u64> = None;
 
-    while lexer.token != Token::EndOfProgram {
-        let type_ = match lexer.token {
-            Token::Identifier => Type::Custom(lexer.slice().to_owned()),
-            Token::TypeByte => Type::Byte(lexer.extras.0),
+    for tk in tokens {
+        let type_ = match tk {
+            Token::Identifier(ident) => Type::Custom(ident),
+            Token::TypeByte(n) => {
+                Type::Byte(n.parse().map_err(|_| ErrorKind::InvalidArraySize(n))?)
+            }
             Token::TypeBytes => Type::Bytes,
             Token::TypeBool => Type::Bool,
             Token::TypeUint => Type::Uint,
             Token::TypeInt => Type::Int,
             Token::TypeString => Type::String,
             Token::TypeAddress => Type::Address,
-            Token::LiteralInteger => {
-                let length = lexer.slice();
+            Token::LiteralInteger(length) => {
                 current_array_length = Some(
                     length
                         .parse()
                         .map_err(|_| ErrorKind::InvalidArraySize(length.into()))?,
                 );
-                lexer.advance();
                 continue;
             }
             Token::BracketOpen if token.is_some() && state == State::Close => {
                 state = State::Open;
-                lexer.advance();
                 continue;
             }
             Token::BracketClose if array_depth < 10 => {
@@ -111,12 +162,11 @@ pub fn parse_type(field_type: &str) -> Result<Type> {
                         inner: Box::new(token.expect("if statement checks for some; qed")),
                         length,
                     });
-                    lexer.advance();
                     array_depth += 1;
                     continue;
                 } else {
                     return Err(ErrorKind::UnexpectedToken(
-                        lexer.slice().to_owned(),
+                        format!("{token:?}"),
                         field_type.to_owned(),
                     ))?;
                 }
@@ -126,14 +176,12 @@ pub fn parse_type(field_type: &str) -> Result<Type> {
             }
             _ => {
                 return Err(ErrorKind::UnexpectedToken(
-                    lexer.slice().to_owned(),
+                    format!("{token:?}"),
                     field_type.to_owned(),
                 ))?
             }
         };
-
         token = Some(type_);
-        lexer.advance();
     }
 
     Ok(token.ok_or(ErrorKind::NonExistentType)?)
