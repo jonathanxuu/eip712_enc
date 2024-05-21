@@ -1,5 +1,7 @@
 # EIP-712 ![Crates.io](https://img.shields.io/crates/d/EIP-712.svg) [![Released API docs](https://docs.rs/EIP-712/badge.svg)](https://docs.rs/EIP-712)
 
+Forked from https://github.com/openethereum/parity-ethereum/tree/v2.7.2-stable/util/EIP-712
+
 ## Example
 
 ```rust
