@@ -1,9 +1,9 @@
 [package]
 name = "eip712_enc"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-repository = "https://github.com/paritytech/parity-ethereum"
-documentation = "https://docs.rs/eip-712"
+authors = ["Parity Technologies <admin@parity.io>", "Kevin Wang <wy721@qq.com>"]
+repository = "https://github.com/kvinwang/eip712_enc"
+documentation = "https://docs.rs/eip712_enc"
 readme = "README.md"
 description = "eip-712 encoding"
 keywords = ["eip-712", "eip712", "eip"]
