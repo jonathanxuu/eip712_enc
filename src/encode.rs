@@ -274,6 +274,30 @@ pub fn domain_hash(typed_data: EIP712) -> Result<Vec<u8>> {
     Ok(domain_hash)
 }
 
+/// encodes and hashes the given EIP712 struct
+pub fn data_hash(typed_data: EIP712) -> Result<Vec<u8>> {
+    // validate input
+    typed_data.validate()?;
+    // EIP-191 compliant
+    let prefix = (b"\x19\x01").to_vec();
+    let domain = to_value(&typed_data.domain).unwrap();
+    let (domain_hash, data_hash) = (
+        encode_data(
+            &Type::Custom("EIP712Domain".into()),
+            &typed_data.types,
+            &domain,
+            None,
+        )?,
+        encode_data(
+            &Type::Custom(typed_data.primary_type),
+            &typed_data.types,
+            &typed_data.message,
+            None,
+        )?,
+    );
+    Ok(data_hash)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
