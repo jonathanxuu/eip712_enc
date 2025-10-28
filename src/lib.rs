@@ -169,6 +169,6 @@ mod parser;
 /// EIP712 struct
 pub use crate::eip712::EIP712;
 /// the EIP-712 encoding function
-pub use crate::encode::{hash_structured_data, domain_hash};
+pub use crate::encode::{hash_structured_data, domain_hash, data_hash};
 /// encoding Error types
 pub use crate::error::{Error, ErrorKind};
