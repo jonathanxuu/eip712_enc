@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use validator::{Validate, ValidationError, ValidationErrors};
+use rustc_hex::ToHex;
 
 pub(crate) type MessageTypes = HashMap<String, Vec<FieldType>>;
 
@@ -96,6 +97,8 @@ pub(crate) struct FieldType {
 
 #[cfg(test)]
 mod tests {
+    use crate::hash_structured_data;
+
     use super::*;
     use serde_json::from_str;
 
@@ -166,6 +169,38 @@ mod tests {
 		}"#;
         let _ = from_str::<EIP712>(string).unwrap();
     }
+
+
+	#[test]
+    fn test_typedhash() {
+        let string = r#"{
+		"primaryType": "Mail",
+		"domain": {
+			"name": "Ether Mail",
+			"version": "1",
+			"chainId": "0x1",
+			"verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+		},
+		"message": {
+			"contents": "0x4510cab97026649195b0823262a36309d7d83422a52f919fe5c90b0f325482af"
+		},
+		"types": {
+			"EIP712Domain": [
+				{ "name": "name", "type": "string" },
+				{ "name": "version", "type": "string" },
+				{ "name": "chainId", "type": "uint256" },
+				{ "name": "verifyingContract", "type": "address" }
+			],
+			"Mail": [
+				{ "name": "contents", "type": "bytes32" }
+			]
+		}
+	}"#;
+        let eip_json = from_str::<EIP712>(string).unwrap();
+		let hex_string = hash_structured_data(eip_json.clone()).unwrap().0.to_hex::<String>();
+		println!("typed_hash: {:?}", hex_string);
+    }
+
 
     #[test]
     fn test_failing_deserialization() {

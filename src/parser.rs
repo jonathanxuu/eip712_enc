@@ -42,6 +42,8 @@ fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
     let int = just("int").to(Token::TypeInt);
     let string = just("string").to(Token::TypeString);
     let bool_ = just("bool").to(Token::TypeBool);
+    // bytesN (e.g., bytes32) must come before bytes to ensure correct matching
+    let bytes_n = just("bytes").then(digits.clone()).map(|(_, n)| Token::TypeByte(n));
     let bytes = just("bytes").to(Token::TypeBytes);
     let address = just("address").to(Token::TypeAddress);
     let number = digits.clone().map(Token::LiteralInteger);
@@ -53,6 +55,7 @@ fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .or(int)
         .or(string)
         .or(bool_)
+        .or(bytes_n)
         .or(bytes)
         .or(address)
         .or(byte)
